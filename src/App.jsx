@@ -27,118 +27,148 @@ export default function ExcelUploader() {
       const workbook = XLSX.read(e.target.result, { type: "binary" });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json(sheet);
+      const jsonData = XLSX.utils.sheet_to_json(sheet, { raw: false }); 
       setData(jsonData);
     };
+
     reader.readAsBinaryString(file);
   };
 
   const validator = (val) => {
-    var allDigitEqual = [
-      "0000000000",
-      "1111111111",
-      "2222222222",
-      "3333333333",
-      "4444444444",
-      "5555555555",
-      "6666666666",
-      "7777777777",
-      "8888888888",
-      "9999999999",
-    ];
+    const allDigitEqual = Array.from({ length: 10 }, (_, i) =>
+      String(i).repeat(10)
+    );
     const codeMelliPattern = /^([0-9]{10})+$/;
-    if (allDigitEqual.indexOf(val) !== -1 || !codeMelliPattern.test(val)) {
-      return false;
-    }
-    var chArray = Array.from(val);
-    var num0 = parseInt(chArray[0]) * 10;
-    var num2 = parseInt(chArray[1]) * 9;
-    var num3 = parseInt(chArray[2]) * 8;
-    var num4 = parseInt(chArray[3]) * 7;
-    var num5 = parseInt(chArray[4]) * 6;
-    var num6 = parseInt(chArray[5]) * 5;
-    var num7 = parseInt(chArray[6]) * 4;
-    var num8 = parseInt(chArray[7]) * 3;
-    var num9 = parseInt(chArray[8]) * 2;
-    var a = parseInt(chArray[9]);
-    var b = num0 + num2 + num3 + num4 + num5 + num6 + num7 + num8 + num9;
-    var c = b % 11;
-    return (c < 2 && a === c) || (c >= 2 && 11 - c === a);
+    if (allDigitEqual.includes(val) || !codeMelliPattern.test(val)) return false;
+
+    const chArray = Array.from(val);
+    const sum = chArray
+      .slice(0, 9)
+      .reduce((acc, num, i) => acc + parseInt(num) * (10 - i), 0);
+    const remainder = sum % 11;
+    const check = parseInt(chArray[9]);
+    return (remainder < 2 && check === remainder) || (remainder >= 2 && 11 - remainder === check);
   };
 
   const handleSearch = () => {
-    if (searchTerm === "") {
-      toast.error('کد ملی را وارد کنید');
-      return;
-    } else if (!validator(searchTerm)) {
-      toast.error('کد ملی نامعتبر است');
+    const trimmed = searchTerm.trim();
+
+    if (trimmed === "") {
+      toast.error("کد ملی را وارد کنید");
       return;
     }
-    const record = data.find(row => row["کد ملی"] === searchTerm);
+
+    if (!validator(trimmed)) {
+      toast.error("کد ملی نامعتبر است");
+      return;
+    }
+
+    const record = data.find((row) => {
+      const code = String(row["کد ملی"] ?? "").trim();
+      return code === trimmed;
+    });
+
     if (record) {
-      setFoundRecord(record || null);
+      setFoundRecord(record);
     } else {
-      toast.error('رکوردی با این کد ملی یافت نشد');
+      toast.error("رکوردی با این کد ملی یافت نشد");
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-6">
-      <h1 className="text-2xl font-bold mb-4">آپلود فایل اکسل</h1>
-      <input
-        type="file"
-        accept=".xlsx, .xls"
-        onChange={handleFileUpload}
-        className="p-2 border rounded-md bg-white cursor-pointer"
-      />
+    <div className="flex flex-col items-center min-h-screen bg-slate-900 text-slate-100 py-10 px-4">
+      <h1 className="text-3xl font-bold mb-6 text-slate-200">
+        آپلود و جستجوی فایل اکسل
+      </h1>
+
+      <div className="mb-4 w-full max-w-md">
+        <input
+          type="file"
+          accept=".xlsx, .xls"
+          onChange={handleFileUpload}
+          className="w-full p-2 border border-slate-600 rounded-md bg-slate-800 text-slate-200 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-slate-700 file:text-slate-100 hover:file:bg-slate-600 transition"
+        />
+      </div>
 
       {uploadProgress > 0 && (
-        <div className="w-full max-w-md mt-4">
-          <div className="w-full bg-gray-300 rounded-full h-4">
+        <div className="w-full max-w-md mb-6">
+          <div className="w-full bg-slate-700 rounded-full h-3">
             <div
-              className="bg-blue-500 h-4 rounded-full"
+              className="bg-green-500 h-3 rounded-full transition-all duration-300"
               style={{ width: `${uploadProgress}%` }}
             ></div>
           </div>
-          <p className="text-center mt-1 text-sm">{uploadProgress}%</p>
+          <p className="text-center text-xs mt-1 text-slate-300">{uploadProgress}%</p>
         </div>
       )}
 
       {data.length > 0 && (
-        <div className="mt-6">
-          <input
-            type="number"
-            min={10000000000}
-            max={99999999999}
-            placeholder="کد ملی را وارد کنید"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="p-2 border rounded-md mr-2"
-          />
-          <button
-            onClick={handleSearch}
-            className="bg-blue-500 text-white px-4 py-2 rounded cursor-pointer"
-          >
-            جستجو
-          </button>
-        </div>
-      )}
+        <>
+          <div className="flex items-center gap-2 mb-6">
+            <input
+              type="text"
+              placeholder="کد ملی را وارد کنید"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="p-2 border border-slate-600 bg-slate-800 text-slate-100 rounded-md w-64 placeholder-slate-400"
+            />
+            <button
+              onClick={handleSearch}
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
+            >
+              جستجو
+            </button>
+          </div>
 
-      {foundRecord && (
-        <div className="mt-6 p-4 border rounded bg-white shadow-lg">
-          <h2 className="text-lg font-bold mb-2">اطلاعات رکورد</h2>
-          {Object.entries(foundRecord).map(([key, value]) => (
-            <p key={key} className="border-b p-2">
-              <strong>{key}:</strong> {value}
-            </p>
-          ))}
-          <button
-            onClick={() => setFoundRecord(null)}
-            className="mt-4 bg-red-500 text-white px-3 py-1 rounded"
-          >
-            بستن
-          </button>
-        </div>
+          {foundRecord && (
+            <div className="bg-slate-800 border border-slate-700 rounded-lg shadow-lg p-5 mb-8 w-full max-w-2xl">
+              <h2 className="text-lg font-bold mb-3 text-slate-100">
+                نتیجه جستجو
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {Object.entries(foundRecord).map(([key, value]) => (
+                  <div
+                    key={key}
+                    className="p-2 bg-slate-700 rounded-md text-sm text-slate-200 border border-slate-600"
+                  >
+                    <strong className="text-slate-300">{key}:</strong> {value}
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => setFoundRecord(null)}
+                className="mt-4 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition"
+              >
+                بستن
+              </button>
+            </div>
+          )}
+
+          <div className="w-full overflow-x-auto rounded-lg border border-slate-700 shadow-xl">
+            <table className="min-w-[600px] w-full text-sm bg-slate-800 text-slate-200 text-right">
+              <thead className="bg-slate-700 text-slate-300 border-b border-slate-600">
+                <tr>
+                  {Object.keys(data[0]).map((key) => (
+                    <th key={key} className="py-2 px-4 font-medium whitespace-nowrap">
+                      {key}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-slate-700 transition">
+                    {Object.values(row).map((value, i) => (
+                      <td key={i} className="py-2 px-4 border-t border-slate-700">
+                        {value}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );
